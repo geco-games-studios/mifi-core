@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import path
-from core.views import IndividualLoanViewSet, GroupLoanViewSet, GroupMemberStatusViewSet
+from core.views import GroupLoanPaymentViewSet, IndividualLoanPaymentViewSet, IndividualLoanViewSet, GroupLoanViewSet, GroupMemberStatusViewSet
 from users.views import UserViewSet
 from reports.views import PaymentsCollectedViewSet,ActiveGroupsViewSet,AmountLoanedViewSet,ActiveLoansViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -20,6 +20,18 @@ urlpatterns = [
         'put': 'partial_update',
         'delete': 'destroy'
     }), name='individual-loan-detail'),
+    path('individual/payments/<int:loan_id>/', IndividualLoanPaymentViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='individual-loan-payments'),
+    path('individual/<int:loan_id>/payments/<int:pk>/', IndividualLoanPaymentViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='individual-loan-payment-detail'),
+
+
     path('group/', GroupLoanViewSet.as_view({
         'get': 'list',
         'post': 'create'
@@ -29,7 +41,14 @@ urlpatterns = [
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='group-loan-detail'),
-        path('group-members/', GroupMemberStatusViewSet.as_view({
+    path('group/<int:loan_id>/payments/<int:pk>/', GroupLoanPaymentViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='group-loan-payment-detail'),
+
+    path('group-members/', GroupMemberStatusViewSet.as_view({
         'get': 'list',
         'post': 'create'
     }), name='group-member-list'),

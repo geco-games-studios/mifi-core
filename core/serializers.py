@@ -1,11 +1,35 @@
 from rest_framework import serializers
-from .models import IndividualLoan, GroupLoan, GroupMemberStatus
+from .models import GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment
 from users.serializers import UserSerializer
+
+class IndividualLoanPaymentSerializer(serializers.ModelSerializer):
+    recorded_by = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = IndividualLoanPayment
+        fields = '__all__'
+        read_only_fields = ('payment_date', 'recorded_by')
+
+class GroupLoanPaymentSerializer(serializers.ModelSerializer):
+    recorded_by = UserSerializer(read_only=True)
+    member = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = GroupLoanPayment
+        fields = '__all__'
+        read_only_fields = ('payment_date', 'recorded_by')
 
 class IndividualLoanSerializer(serializers.ModelSerializer):
     recipient = UserSerializer(read_only=True)
     recipient_id = serializers.IntegerField(write_only=True)
     loan_officer = UserSerializer(read_only=True)
+
+    payments = IndividualLoanPaymentSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = IndividualLoan
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at', 'loan_type', 'loan_officer', 'total_due', 'total_paid')
     
     class Meta:
         model = IndividualLoan
@@ -20,6 +44,14 @@ class GroupMemberStatusSerializer(serializers.ModelSerializer):
     member = UserSerializer(read_only=True)
     blocked_by = UserSerializer(read_only=True)
     group_loan = serializers.PrimaryKeyRelatedField(read_only=True)
+    payments = GroupLoanPaymentSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = GroupLoan
+        fields = [
+            # ... existing fields ...
+            'payments'
+        ]
     
     class Meta:
         model = GroupMemberStatus
@@ -42,7 +74,7 @@ class GroupLoanSerializer(serializers.ModelSerializer):
         model = GroupLoan
         fields = [
             'id', 'loan_type', 'group_name', 'frequency_letter',
-            'amount', 'time', 'penalty', 'total_group_loan', 'loan_given',
+            'amount', 'penalty', 'total_group_loan', 'loan_given',
             'due_date', 'transferred', 'blocked', 'new', 'members',
             'member_statuses', 'loan_officer', 'created_at', 'updated_at', 'member_ids'
         ]
@@ -92,3 +124,4 @@ class GroupLoanSerializer(serializers.ModelSerializer):
                 )
         
         return instance
+    

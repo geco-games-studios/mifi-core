@@ -1,11 +1,16 @@
 from django.forms import ValidationError
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from .models import IndividualLoan, GroupLoan, GroupMemberStatus
-from .serializers import IndividualLoanSerializer, GroupLoanSerializer, GroupMemberStatusSerializer
+
+from users.models import User
+from .models import GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment
+from .serializers import GroupLoanPaymentSerializer, IndividualLoanPaymentSerializer, IndividualLoanSerializer, GroupLoanSerializer, GroupMemberStatusSerializer
 from .permissions import IsLoanOfficerOrHigher
 from core import serializers
+
+from core import models
 
 class IndividualLoanViewSet(viewsets.ModelViewSet):
     queryset = IndividualLoan.objects.all().order_by('-created_at')
@@ -17,13 +22,21 @@ class IndividualLoanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # print(f"Debug - User role: {user.role}")  # Check what role is being detected
+        
         if user.role in ['superuser', 'manager', 'region_manager']:
-            return self.queryset
+            return IndividualLoan.objects.all().order_by('-created_at')
         elif user.role == 'loan_officer':
-            return self.queryset.filter(loan_officer=user)
+            return IndividualLoan.objects.filter(loan_officer=user).order_by('-created_at')
         else:
-            return self.queryset.filter(recipient=user)
+            # For regular users, show loans where they're either officer OR recipient
+            return IndividualLoan.objects.filter(
+                models.Q(loan_officer=user) | 
+                models.Q(recipient=user)
+                .order_by('-created_at')
+            )
 
+                
 class GroupLoanViewSet(viewsets.ModelViewSet):
     queryset = GroupLoan.objects.all().order_by('-created_at')
     serializer_class = GroupLoanSerializer
@@ -74,3 +87,32 @@ class GroupMemberStatusViewSet(viewsets.ModelViewSet):
                 serializer.validated_data['blocked_by'] = None
                 serializer.validated_data['blocked_at'] = None
         serializer.save()
+
+class IndividualLoanPaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = IndividualLoanPaymentSerializer
+    permission_classes = [IsAuthenticated, IsLoanOfficerOrHigher]
+    
+    def get_queryset(self):
+        loan_id = self.kwargs.get('loan_id')
+        return IndividualLoanPayment.objects.filter(loan_id=loan_id).order_by('-payment_date')
+    
+    def perform_create(self, serializer):
+        loan = get_object_or_404(IndividualLoan, pk=self.kwargs.get('loan_id'))
+        amount = serializer.validated_data['amount']
+        payment = loan.make_payment(amount, self.request.user)
+        serializer.instance = payment
+
+class GroupLoanPaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = GroupLoanPaymentSerializer
+    permission_classes = [IsAuthenticated, IsLoanOfficerOrHigher]
+    
+    def get_queryset(self):
+        loan_id = self.kwargs.get('loan_id')
+        return GroupLoanPayment.objects.filter(loan_id=loan_id).order_by('-payment_date')
+    
+    def perform_create(self, serializer):
+        loan = get_object_or_404(GroupLoan, pk=self.kwargs.get('loan_id'))
+        member = get_object_or_404(User, pk=serializer.validated_data['member_id'])
+        amount = serializer.validated_data['amount']
+        payment = loan.make_payment(amount, self.request.user, member)
+        serializer.instance = payment
