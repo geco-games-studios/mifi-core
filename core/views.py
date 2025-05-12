@@ -1,9 +1,12 @@
 from django.forms import ValidationError
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from .models import IndividualLoan, GroupLoan, GroupMemberStatus
-from .serializers import IndividualLoanSerializer, GroupLoanSerializer, GroupMemberStatusSerializer
+
+from users.models import User
+from .models import GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment
+from .serializers import GroupLoanPaymentSerializer, IndividualLoanPaymentSerializer, IndividualLoanSerializer, GroupLoanSerializer, GroupMemberStatusSerializer
 from .permissions import IsLoanOfficerOrHigher
 from core import serializers
 
@@ -74,3 +77,32 @@ class GroupMemberStatusViewSet(viewsets.ModelViewSet):
                 serializer.validated_data['blocked_by'] = None
                 serializer.validated_data['blocked_at'] = None
         serializer.save()
+
+class IndividualLoanPaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = IndividualLoanPaymentSerializer
+    permission_classes = [IsAuthenticated, IsLoanOfficerOrHigher]
+    
+    def get_queryset(self):
+        loan_id = self.kwargs.get('loan_id')
+        return IndividualLoanPayment.objects.filter(loan_id=loan_id).order_by('-payment_date')
+    
+    def perform_create(self, serializer):
+        loan = get_object_or_404(IndividualLoan, pk=self.kwargs.get('loan_id'))
+        amount = serializer.validated_data['amount']
+        payment = loan.make_payment(amount, self.request.user)
+        serializer.instance = payment
+
+class GroupLoanPaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = GroupLoanPaymentSerializer
+    permission_classes = [IsAuthenticated, IsLoanOfficerOrHigher]
+    
+    def get_queryset(self):
+        loan_id = self.kwargs.get('loan_id')
+        return GroupLoanPayment.objects.filter(loan_id=loan_id).order_by('-payment_date')
+    
+    def perform_create(self, serializer):
+        loan = get_object_or_404(GroupLoan, pk=self.kwargs.get('loan_id'))
+        member = get_object_or_404(User, pk=serializer.validated_data['member_id'])
+        amount = serializer.validated_data['amount']
+        payment = loan.make_payment(amount, self.request.user, member)
+        serializer.instance = payment
