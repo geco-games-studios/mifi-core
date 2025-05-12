@@ -23,12 +23,6 @@ class IndividualLoanSerializer(serializers.ModelSerializer):
     recipient = UserSerializer(read_only=True)
     recipient_id = serializers.IntegerField(write_only=True)
     loan_officer = UserSerializer(read_only=True)
-    payments = IndividualLoanPaymentSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = IndividualLoan
-        fields = '__all__'
-        read_only_fields = ('created_at', 'updated_at', 'loan_type', 'loan_officer', 'total_due', 'total_paid')
     
     class Meta:
         model = IndividualLoan
@@ -43,14 +37,6 @@ class GroupMemberStatusSerializer(serializers.ModelSerializer):
     member = UserSerializer(read_only=True)
     blocked_by = UserSerializer(read_only=True)
     group_loan = serializers.PrimaryKeyRelatedField(read_only=True)
-    payments = GroupLoanPaymentSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = GroupLoan
-        fields = [
-            'payments'
-        ]
-
     
     class Meta:
         model = GroupMemberStatus

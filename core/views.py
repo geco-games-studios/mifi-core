@@ -10,6 +10,8 @@ from .serializers import GroupLoanPaymentSerializer, IndividualLoanPaymentSerial
 from .permissions import IsLoanOfficerOrHigher
 from core import serializers
 
+from core import models
+
 class IndividualLoanViewSet(viewsets.ModelViewSet):
     queryset = IndividualLoan.objects.all().order_by('-created_at')
     serializer_class = IndividualLoanSerializer
@@ -20,13 +22,21 @@ class IndividualLoanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # print(f"Debug - User role: {user.role}")  # Check what role is being detected
+        
         if user.role in ['superuser', 'manager', 'region_manager']:
-            return self.queryset
+            return IndividualLoan.objects.all().order_by('-created_at')
         elif user.role == 'loan_officer':
-            return self.queryset.filter(loan_officer=user)
+            return IndividualLoan.objects.filter(loan_officer=user).order_by('-created_at')
         else:
-            return self.queryset.filter(recipient=user)
+            # For regular users, show loans where they're either officer OR recipient
+            return IndividualLoan.objects.filter(
+                models.Q(loan_officer=user) | 
+                models.Q(recipient=user)
+                .order_by('-created_at')
+            )
 
+                
 class GroupLoanViewSet(viewsets.ModelViewSet):
     queryset = GroupLoan.objects.all().order_by('-created_at')
     serializer_class = GroupLoanSerializer
