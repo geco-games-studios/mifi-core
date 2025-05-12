@@ -111,9 +111,8 @@ class GroupLoan(Loan):
 
     def clean(self):
         super().clean()
-        if not self.pk and hasattr(self, 'members'):
-            if self.members.count() < 2:
-                raise ValidationError("A group must have at least 2 members.")
+        # Remove the members check from clean() since we'll validate in serializer
+
     
     def save(self, *args, **kwargs):
         self.clean()
