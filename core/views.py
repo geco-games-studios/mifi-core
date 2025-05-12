@@ -102,6 +102,51 @@ class IndividualLoanPaymentViewSet(viewsets.ModelViewSet):
         payment = loan.make_payment(amount, self.request.user)
         serializer.instance = payment
 
+    # @action(detail=True, methods=['get'], url_path='payments')
+    # def list_payments(self, request, pk=None):
+    #     loan = self.get_object()
+    #     payments = loan.payments.all().order_by('-payment_date')
+    #     serializer = IndividualLoanPaymentSerializer(payments, many=True)
+    #     return Response(serializer.data)
+
+class GroupLoanPaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = GroupLoanPaymentSerializer
+    permission_classes = [IsAuthenticated, IsLoanOfficerOrHigher]
+    
+    def get_queryset(self):
+        loan_id = self.kwargs.get('loan_id')
+        return GroupLoanPayment.objects.filter(loan_id=loan_id).order_by('-payment_date')
+    
+    def perform_create(self, serializer):
+        loan = get_object_or_404(GroupLoan, pk=self.kwargs.get('loan_id'))
+        member = get_object_or_404(User, pk=serializer.validated_data['member_id'])
+        amount = serializer.validated_data['amount']
+        payment = loan.make_payment(amount, self.request.user, member)
+        serializer.instance = payment
+
+    # @action(detail=True, methods=['get'], url_path='payments')
+    # def list_payments(self, request, pk=None):
+    #     loan = self.get_object()
+    #     payments = loan.payments.all().order_by('-payment_date')
+    #     serializer = GroupLoanPaymentSerializer(payments, many=True)
+    #     return Response(serializer.data)
+
+class IndividualLoanPaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = IndividualLoanPaymentSerializer
+    permission_classes = [IsAuthenticated, IsLoanOfficerOrHigher]
+    
+    def get_queryset(self):
+        loan_id = self.kwargs.get('loan_id')
+        return IndividualLoanPayment.objects.filter(loan_id=loan_id).order_by('-payment_date')
+    
+    def perform_create(self, serializer):
+        loan = get_object_or_404(IndividualLoan, pk=self.kwargs.get('loan_id'))
+        amount = serializer.validated_data['amount']
+        payment = loan.make_payment(amount, self.request.user)
+        serializer.instance = payment
+
+    
+
 class GroupLoanPaymentViewSet(viewsets.ModelViewSet):
     serializer_class = GroupLoanPaymentSerializer
     permission_classes = [IsAuthenticated, IsLoanOfficerOrHigher]

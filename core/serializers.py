@@ -2,6 +2,23 @@ from rest_framework import serializers
 from .models import GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment
 from users.serializers import UserSerializer
 
+class GroupLoanPaymentSerializer(serializers.ModelSerializer):
+    recorded_by = UserSerializer(read_only=True)
+    member = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = GroupLoanPayment
+        fields = '__all__'
+        read_only_fields = ('payment_date', 'recorded_by')
+
+class IndividualLoanPaymentSerializer(serializers.ModelSerializer):
+    recorded_by = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = IndividualLoanPayment
+        fields = '__all__'
+        read_only_fields = ('payment_date', 'recorded_by')
+
 class IndividualLoanPaymentSerializer(serializers.ModelSerializer):
     recorded_by = UserSerializer(read_only=True)
     
@@ -23,11 +40,12 @@ class IndividualLoanSerializer(serializers.ModelSerializer):
     recipient = UserSerializer(read_only=True)
     recipient_id = serializers.IntegerField(write_only=True)
     loan_officer = UserSerializer(read_only=True)
+    payments = IndividualLoanPaymentSerializer(many=True, read_only=True)
     
     class Meta:
         model = IndividualLoan
         fields = '__all__'
-        read_only_fields = ('created_at', 'updated_at', 'loan_type', 'loan_officer')
+        read_only_fields = ('created_at', 'updated_at', 'loan_type', 'loan_officer', 'total_due', 'total_paid')
 
     def validate(self, data):
         data['loan_type'] = 'individual'
@@ -54,6 +72,8 @@ class GroupLoanSerializer(serializers.ModelSerializer):
         help_text="List of member user IDs (minimum 2 required)"
     )
     frequency_letter = serializers.ChoiceField(choices=GroupLoan.FREQUENCY_LETTERS)
+    payments = GroupLoanPaymentSerializer(many=True, read_only=True)
+    
     
     class Meta:
         model = GroupLoan
@@ -61,7 +81,7 @@ class GroupLoanSerializer(serializers.ModelSerializer):
             'id', 'loan_type', 'group_name', 'frequency_letter',
             'amount', 'penalty', 'total_group_loan', 'loan_given',
             'due_date', 'transferred', 'blocked', 'new', 'members',
-            'member_statuses', 'loan_officer', 'created_at', 'updated_at', 'member_ids'
+            'member_statuses', 'loan_officer', 'created_at', 'updated_at', 'member_ids', 'payments'
         ]
         read_only_fields = (
             'created_at', 'updated_at', 'members', 'member_statuses',

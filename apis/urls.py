@@ -61,7 +61,7 @@ urlpatterns = [
         'delete': 'destroy'
     }), name='group-loan-payment-detail'),
 
-    path('group-members/', GroupMemberStatusViewSet.as_view({
+
     path('group/<int:loan_id>/payments/', GroupLoanPaymentViewSet.as_view({
         'get': 'list',
         'post': 'create'

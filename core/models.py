@@ -2,6 +2,9 @@ from django.db import models
 from users.models import User
 from django.core.exceptions import ValidationError
 
+
+
+
 class Loan(models.Model):
     LOAN_TYPES = (
         ('individual', 'Individual'),
@@ -20,6 +23,42 @@ class Loan(models.Model):
         null=True,
         related_name='%(class)s_loans'
     )
+    total_due = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    total_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    
+    def clean(self):
+        # Validate loan duration doesn't exceed 28 days
+        if (self.end_date - self.start_date).days > 28:
+            raise ValidationError("Loan duration cannot exceed 28 days.")
+        
+    def make_payment(self, amount, user, member=None):
+        if amount <= 0:
+            raise ValidationError("Payment amount must be positive.")
+            
+        if amount > self.total_due:
+            raise ValidationError("Payment amount exceeds total due.")
+            
+        self.total_due -= amount
+        self.total_paid += amount
+        self.save()
+        
+        if isinstance(self, IndividualLoan):
+            return IndividualLoanPayment.objects.create(
+                loan=self,
+                amount=amount,
+                recorded_by=user
+            )
+        elif isinstance(self, GroupLoan) and member:
+            return GroupLoanPayment.objects.create(
+                loan=self,
+                amount=amount,
+                recorded_by=user,
+                member=member
+            )
+        else:
+            raise ValidationError("Invalid payment parameters.")
 
     class Meta:
         abstract = True
@@ -122,3 +161,35 @@ class GroupLoan(Loan):
         """Returns a combined frequency representation"""
         return f"{self.frequency_letter}"
     
+class Payment(models.Model):
+    """Model to track loan payments"""
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_date = models.DateTimeField(auto_now_add=True)
+    recorded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='%(class)s_recorded_payments'  # This will make it unique per child class
+    )
+    
+    class Meta:
+        abstract = True
+
+class IndividualLoanPayment(Payment):
+    loan = models.ForeignKey(
+        IndividualLoan,
+        on_delete=models.CASCADE,
+        related_name='payments'
+    )
+
+class GroupLoanPayment(Payment):
+    loan = models.ForeignKey(
+        GroupLoan,
+        on_delete=models.CASCADE,
+        related_name='payments'
+    )
+    member = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='group_loan_payments'
+    )
