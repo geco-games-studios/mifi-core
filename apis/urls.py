@@ -27,7 +27,6 @@ urlpatterns = [
     }), name='individual-loan-payments'),
     path('individual/<int:loan_id>/payments/<int:pk>/', IndividualLoanPaymentViewSet.as_view({
         'get': 'retrieve',
-        'put': 'update',
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='individual-loan-payment-detail'),
@@ -39,7 +38,6 @@ urlpatterns = [
     }), name='individual-loan-payments'),
     path('individual/<int:loan_id>/payments/<int:pk>/', IndividualLoanPaymentViewSet.as_view({
         'get': 'retrieve',
-        'put': 'update',
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='individual-loan-payment-detail'),
@@ -56,7 +54,6 @@ urlpatterns = [
     }), name='group-loan-detail'),
     path('group/<int:loan_id>/payments/<int:pk>/', GroupLoanPaymentViewSet.as_view({
         'get': 'retrieve',
-        'put': 'update',
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='group-loan-payment-detail'),
@@ -68,7 +65,6 @@ urlpatterns = [
     }), name='group-loan-payments'),
     path('group/<int:loan_id>/payments/<int:pk>/', GroupLoanPaymentViewSet.as_view({
         'get': 'retrieve',
-        'put': 'update',
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='group-loan-payment-detail'),
@@ -79,7 +75,7 @@ urlpatterns = [
     }), name='group-member-list'),
     path('group-members/<int:pk>/', GroupMemberStatusViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='group-member-detail'),
 
@@ -104,7 +100,7 @@ urlpatterns = [
     }), name='payments-collected'),
     path('payments-collected/<int:pk>/', PaymentsCollectedViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='payments-collected-detail'),
     
@@ -114,7 +110,7 @@ urlpatterns = [
     }), name='active-groups'),
     path('active-groups/<int:pk>/', ActiveGroupsViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='active-groups-detail'),
     
@@ -124,7 +120,7 @@ urlpatterns = [
     }), name='amount-loaned'),
     path('amount-loaned/<int:pk>/', AmountLoanedViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='amount-loaned-detail'),
     
@@ -134,7 +130,7 @@ urlpatterns = [
     }), name='active-loans'),
     path('active-loans/<int:pk>/', ActiveLoansViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='active-loans-detail'),
 ]
