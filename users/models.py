@@ -1,11 +1,12 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.core.exceptions import ValidationError
+import re
 
 def user_directory_path(instance, filename):
-    # Files will be uploaded to MEDIA_ROOT/user_<id>/<filename>
-    return f'user_{instance.id}/{filename}'
-
+    # Replace spaces and special characters with underscores
+    safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', instance.first_name)
+    return f'user_{safe_name}/{filename}'
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
@@ -42,6 +43,7 @@ class User(AbstractUser):
         ('region_manager', 'Region Manager'),
         ('manager', 'Manager'),
         ('superuser', 'Super User'),
+        ('guarantor', 'Guarantor'), 
     )
 
     role = models.CharField(max_length=20, choices=ROLES, default='clients')
