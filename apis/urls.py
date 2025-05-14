@@ -133,4 +133,15 @@ urlpatterns = [
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='active-loans-detail'),
+
+    # Collaterals
+    # path('collaterals/', CollateralViewSet.as_view({
+    #     'get': 'list',
+    #     'post': 'create'
+    # }), name='collateral-list-create'),
+    # path('collaterals/<int:pk>/', CollateralViewSet.as_view({
+    #     'get': 'retrieve',
+    #     'patch': 'partial_update',
+    #     'delete': 'destroy'
+    # }), name='collateral-detail'),
 ]

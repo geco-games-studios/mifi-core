@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment
 from users.serializers import UserSerializer
+from rest_framework.exceptions import ValidationError
 
 class GroupLoanPaymentSerializer(serializers.ModelSerializer):
     recorded_by = UserSerializer(read_only=True)
@@ -65,24 +66,23 @@ class GroupLoanSerializer(serializers.ModelSerializer):
     members = UserSerializer(many=True, read_only=True)
     member_statuses = GroupMemberStatusSerializer(many=True, read_only=True)
     loan_officer = UserSerializer(read_only=True)
-    member_ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=True,
-        help_text="List of member user IDs (minimum 2 required)"
-    )
+    member_ids = serializers.ListField(child=serializers.IntegerField(),write_only=True,required=True,help_text="List of member user IDs (minimum 2 required)")
     frequency_letter = serializers.ChoiceField(choices=GroupLoan.FREQUENCY_LETTERS)
     payments = GroupLoanPaymentSerializer(many=True, read_only=True)
+    start_date = serializers.DateField(required=True)
+    end_date = serializers.DateField(required=True)
+    
     
     
     class Meta:
         model = GroupLoan
         fields = [
-            'id', 'loan_type', 'group_name', 'frequency_letter',
-            'amount', 'penalty', 'total_group_loan', 'loan_given',
+            'id', 'loan_type', 'group_name', 'frequency_letter', "end_date", "start_date",
+            'amount', 'penalty', 'total_group_loan', 'loan_given', "time",
             'due_date', 'transferred', 'blocked', 'new', 'members',
             'member_statuses', 'loan_officer', 'created_at', 'updated_at', 'member_ids', 'payments'
         ]
+
         read_only_fields = (
             'created_at', 'updated_at', 'members', 'member_statuses',
             'loan_type', 'loan_officer'
@@ -129,4 +129,10 @@ class GroupLoanSerializer(serializers.ModelSerializer):
                 )
         
         return instance
+    
+# class CollateralSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Collateral
+#         fields = ['id', 'photo', 'video', 'uploaded_at']
+
     
