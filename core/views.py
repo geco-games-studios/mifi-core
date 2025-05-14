@@ -3,13 +3,16 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-
+from rest_framework.decorators import action
 from users.models import User
 from .models import Collateral, GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment
-from .serializers import GroupLoanPaymentSerializer, IndividualLoanPaymentSerializer, IndividualLoanSerializer, GroupLoanSerializer, GroupMemberStatusSerializer
+from .serializers import CollateralSerializer, GroupLoanPaymentSerializer, IndividualLoanPaymentSerializer, IndividualLoanSerializer, GroupLoanSerializer, GroupMemberStatusSerializer
 from .permissions import IsLoanOfficerOrHigher
 from core import serializers
 from rest_framework.exceptions import NotFound
+from django.contrib.contenttypes.models import ContentType
+from rest_framework.response import Response
+from rest_framework import status
 
 from core import models
 
@@ -36,6 +39,7 @@ class IndividualLoanViewSet(viewsets.ModelViewSet):
                 models.Q(recipient=user)
                 .order_by('-created_at')
             )
+        
 
                 
 class GroupLoanViewSet(viewsets.ModelViewSet):
@@ -143,9 +147,16 @@ class IndividualLoanPaymentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         loan = get_object_or_404(IndividualLoan, pk=self.kwargs.get('loan_id'))
         amount = serializer.validated_data['amount']
-        payment = loan.make_payment(amount, self.request.user)
+        payment_type = serializer.validated_data.get('payment_type', 'NORMAL')
+        
+        if payment_type == 'ADVANCE':
+            payment = loan.make_advance_payment(amount, self.request.user)
+        elif payment_type == 'RECOVERY':
+            payment = loan.make_recovery_payment(amount, self.request.user)
+        else:
+            payment = loan.make_normal_payment(amount, self.request.user)
+            
         serializer.instance = payment
-
     
 
 class GroupLoanPaymentViewSet(viewsets.ModelViewSet):
@@ -160,23 +171,110 @@ class GroupLoanPaymentViewSet(viewsets.ModelViewSet):
         loan = get_object_or_404(GroupLoan, pk=self.kwargs.get('loan_id'))
         member = get_object_or_404(User, pk=serializer.validated_data['member_id'])
         amount = serializer.validated_data['amount']
-        payment = loan.make_payment(amount, self.request.user, member)
+        payment_type = serializer.validated_data.get('payment_type', 'NORMAL')
+        
+        if payment_type == 'ADVANCE':
+            payment = loan.make_advance_payment(amount, self.request.user, member)
+        elif payment_type == 'RECOVERY':
+            payment = loan.make_recovery_payment(amount, self.request.user, member)
+        else:
+            payment = loan.make_normal_payment(amount, self.request.user, member)
+            
         serializer.instance = payment
     
-# class CollateralViewSet(viewsets.ModelViewSet):
-#     serializer_class = CollateralSerializer
-#     permission_classes = [IsAuthenticated]
+class CollateralViewSet(viewsets.ModelViewSet):
+    serializer_class = CollateralSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Collateral.objects.all()
 
-#     def get_queryset(self):
-#         loan_id = self.kwargs.get('loan_pk')
-#         if not IndividualLoan.objects.filter(pk=loan_id).exists():
-#             raise NotFound("Individual loan not found.")
-#         return Collateral.objects.filter(loan_id=loan_id)
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by loan type if provided
+        loan_type = self.request.query_params.get('loan_type')
+        if loan_type:
+            if loan_type.upper() == 'INDIVIDUAL':
+                model = IndividualLoan
+            elif loan_type.upper() == 'GROUP':
+                model = GroupLoan
+            else:
+                return queryset.none()
+                
+            content_type = ContentType.objects.get_for_model(model)
+            queryset = queryset.filter(content_type=content_type)
+        
+        # Filter by loan_id if provided
+        loan_id = self.request.query_params.get('loan_id')
+        if loan_id:
+            queryset = queryset.filter(object_id=loan_id)
+        
+        # Also return collaterals that aren't attached to any loan yet
+        return queryset.order_by('-uploaded_at')
 
-#     def perform_create(self, serializer):
-#         loan_id = self.kwargs.get('loan_pk')
-#         try:
-#             loan = IndividualLoan.objects.get(pk=loan_id)
-#         except IndividualLoan.DoesNotExist:
-#             raise NotFound("Individual loan not found.")
-#         serializer.save(loan=loan)
+    @action(detail=False, methods=['post'])
+    def attach_to_loan(self, request):
+        collateral_ids = request.data.get('collateral_ids', [])
+        loan_type = request.data.get('loan_type')
+        loan_id = request.data.get('loan_id')
+        
+        if not collateral_ids or not loan_type or not loan_id:
+            return Response(
+                {'error': 'collateral_ids, loan_type and loan_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if loan_type.upper() == 'INDIVIDUAL':
+            model = IndividualLoan
+        elif loan_type.upper() == 'GROUP':
+            model = GroupLoan
+        else:
+            return Response(
+                {'error': 'loan_type must be INDIVIDUAL or GROUP'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            loan = model.objects.get(pk=loan_id)
+        except model.DoesNotExist:
+            return Response(
+                {'error': 'Loan not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        content_type = ContentType.objects.get_for_model(model)
+        
+        # Update collaterals
+        updated = Collateral.objects.filter(
+            id__in=collateral_ids,
+            content_type__isnull=True,  # Only attach unattached collaterals
+            object_id__isnull=True
+        ).update(
+            content_type=content_type,
+            object_id=loan_id
+        )
+        
+        return Response({
+            'status': f'Attached {updated} collaterals to loan',
+            'attached_count': updated
+        })
+    
+class LoanTypeViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    
+    def list(self, request):
+        loan_types = [
+            {'value': 'INDIVIDUAL', 'label': 'Individual Loan'},
+            {'value': 'GROUP', 'label': 'Group Loan'},
+        ]
+        return Response(loan_types)
+
+class CollateralTypeViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    
+    def list(self, request):
+        loan_types = [
+            {'value': 'PHOTO', 'label': 'Photo'},
+            {'value': 'VIDEO', 'label': 'Video'},
+            {'value': 'DOCUMENT', 'label': 'Document'},
+        ]
+        return Response(loan_types)

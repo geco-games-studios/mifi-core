@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import path
-from core.views import GroupLoanPaymentViewSet, IndividualLoanPaymentViewSet, IndividualLoanViewSet, GroupLoanViewSet, GroupMemberStatusViewSet
+from core.views import CollateralTypeViewSet, CollateralViewSet, GroupLoanPaymentViewSet, IndividualLoanPaymentViewSet, IndividualLoanViewSet, GroupLoanViewSet, GroupMemberStatusViewSet, LoanTypeViewSet
 from core.views import GroupLoanPaymentViewSet, IndividualLoanPaymentViewSet, IndividualLoanViewSet, GroupLoanViewSet, GroupMemberStatusViewSet
 from users.views import UserViewSet
 from reports.views import PaymentsCollectedViewSet,ActiveGroupsViewSet,AmountLoanedViewSet,ActiveLoansViewSet
@@ -135,13 +135,19 @@ urlpatterns = [
     }), name='active-loans-detail'),
 
     # Collaterals
-    # path('collaterals/', CollateralViewSet.as_view({
-    #     'get': 'list',
-    #     'post': 'create'
-    # }), name='collateral-list-create'),
-    # path('collaterals/<int:pk>/', CollateralViewSet.as_view({
-    #     'get': 'retrieve',
-    #     'patch': 'partial_update',
-    #     'delete': 'destroy'
-    # }), name='collateral-detail'),
+    path('collaterals/', CollateralViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='collateral-list-create'),
+    path('collaterals/<int:pk>/', CollateralViewSet.as_view({
+        'get': 'retrieve',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='collateral-detail'),
+    path('collaterals/loan-types/', LoanTypeViewSet.as_view({
+        'get': 'list'
+    }), name='loan-types-list'),
+    path('collaterals/collateral-types/', CollateralTypeViewSet.as_view({
+        'get': 'list'
+    }), name='loan-types-list'),
 ]

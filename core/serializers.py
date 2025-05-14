@@ -1,7 +1,9 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from .models import GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment
+from .models import GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment, Collateral
 from users.serializers import UserSerializer
 from rest_framework.exceptions import ValidationError
+from django.contrib.contenttypes.models import ContentType
 
 class GroupLoanPaymentSerializer(serializers.ModelSerializer):
     recorded_by = UserSerializer(read_only=True)
@@ -130,9 +132,94 @@ class GroupLoanSerializer(serializers.ModelSerializer):
         
         return instance
     
-# class CollateralSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Collateral
-#         fields = ['id', 'photo', 'video', 'uploaded_at']
+class CollateralSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    uploaded_by = UserSerializer(read_only=True)
+    loan_type = serializers.CharField(write_only=True, required=False)  # Make optional
+    loan_id = serializers.IntegerField(write_only=True, required=False)  # Make optional
+    
+    class Meta:
+        model = Collateral
+        fields = [
+            'id', 'loan_type', 'loan_id', 'collateral_type', 
+            'file', 'file_url', 'description', 'uploaded_at', 'verified',
+            'verified_by', 'verified_at', 'uploaded_by',
+        ]
+        read_only_fields = [
+            'id', 'file_url', 'uploaded_at', 'verified_at',
+            'verified_by', 'uploaded_by'
+        ]
 
+    def get_file_url(self, obj):
+        if obj.file:
+            return self.context['request'].build_absolute_uri(obj.file.url)
+        return None
+    
+    def create(self, validated_data):
+        loan_type = validated_data.pop('loan_type', None)
+        loan_id = validated_data.pop('loan_id', None)
+        
+        user = self.context['request'].user
+        
+        # Create collateral without loan association if no loan info provided
+        if not loan_type or not loan_id:
+            return Collateral.objects.create(
+                uploaded_by=user,
+                **validated_data
+            )
+        
+        # Otherwise create with loan association
+        if loan_type.upper() == 'INDIVIDUAL':
+            model = IndividualLoan
+        elif loan_type.upper() == 'GROUP':
+            model = GroupLoan
+        
+        content_type = ContentType.objects.get_for_model(model)
+        
+        return Collateral.objects.create(
+            content_type=content_type,
+            object_id=loan_id,
+            uploaded_by=user,
+            **validated_data
+        )
+
+    def validate(self, data):
+        loan_type = data.get('loan_type')
+        loan_id = data.get('loan_id')
+        
+        # If neither is provided, that's fine - we'll create unattached collateral
+        if not loan_type and not loan_id:
+            return data
+            
+        # If one is provided without the other, that's an error
+        if not loan_type or not loan_id:
+            raise serializers.ValidationError(
+                "Both loan_type and loan_id must be provided together or omitted together"
+            )
+        
+        # Validate loan type
+        if loan_type.upper() == 'INDIVIDUAL':
+            model = IndividualLoan
+        elif loan_type.upper() == 'GROUP':
+            model = GroupLoan
+        else:
+            raise serializers.ValidationError({
+                'loan_type': 'Must be either INDIVIDUAL or GROUP'
+            })
+        
+        # Validate loan exists
+        try:
+            loan = model.objects.get(pk=loan_id)
+        except model.DoesNotExist:
+            raise serializers.ValidationError({
+                'loan_id': 'Loan not found'
+            })
+        
+        # Validate loan status
+        if loan.status not in ['active', 'pending']:
+            raise serializers.ValidationError(
+                "Collateral can only be added to active or pending loans"
+            )
+        
+        return data
     
