@@ -1,6 +1,24 @@
 from rest_framework import serializers
 from .models import GroupLoanPayment, IndividualLoan, GroupLoan, GroupMemberStatus, IndividualLoanPayment
 from users.serializers import UserSerializer
+from rest_framework.exceptions import ValidationError
+
+class GroupLoanPaymentSerializer(serializers.ModelSerializer):
+    recorded_by = UserSerializer(read_only=True)
+    member = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = GroupLoanPayment
+        fields = '__all__'
+        read_only_fields = ('payment_date', 'recorded_by')
+
+class IndividualLoanPaymentSerializer(serializers.ModelSerializer):
+    recorded_by = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = IndividualLoanPayment
+        fields = '__all__'
+        read_only_fields = ('payment_date', 'recorded_by')
 
 class IndividualLoanPaymentSerializer(serializers.ModelSerializer):
     recorded_by = UserSerializer(read_only=True)
@@ -23,18 +41,12 @@ class IndividualLoanSerializer(serializers.ModelSerializer):
     recipient = UserSerializer(read_only=True)
     recipient_id = serializers.IntegerField(write_only=True)
     loan_officer = UserSerializer(read_only=True)
-
     payments = IndividualLoanPaymentSerializer(many=True, read_only=True)
     
     class Meta:
         model = IndividualLoan
         fields = '__all__'
         read_only_fields = ('created_at', 'updated_at', 'loan_type', 'loan_officer', 'total_due', 'total_paid')
-    
-    class Meta:
-        model = IndividualLoan
-        fields = '__all__'
-        read_only_fields = ('created_at', 'updated_at', 'loan_type', 'loan_officer')
 
     def validate(self, data):
         data['loan_type'] = 'individual'
@@ -44,14 +56,6 @@ class GroupMemberStatusSerializer(serializers.ModelSerializer):
     member = UserSerializer(read_only=True)
     blocked_by = UserSerializer(read_only=True)
     group_loan = serializers.PrimaryKeyRelatedField(read_only=True)
-    payments = GroupLoanPaymentSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = GroupLoan
-        fields = [
-            # ... existing fields ...
-            'payments'
-        ]
     
     class Meta:
         model = GroupMemberStatus
@@ -62,22 +66,23 @@ class GroupLoanSerializer(serializers.ModelSerializer):
     members = UserSerializer(many=True, read_only=True)
     member_statuses = GroupMemberStatusSerializer(many=True, read_only=True)
     loan_officer = UserSerializer(read_only=True)
-    member_ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=True,
-        help_text="List of member user IDs (minimum 2 required)"
-    )
+    member_ids = serializers.ListField(child=serializers.IntegerField(),write_only=True,required=True,help_text="List of member user IDs (minimum 2 required)")
     frequency_letter = serializers.ChoiceField(choices=GroupLoan.FREQUENCY_LETTERS)
+    payments = GroupLoanPaymentSerializer(many=True, read_only=True)
+    start_date = serializers.DateField(required=True)
+    end_date = serializers.DateField(required=True)
+    
+    
     
     class Meta:
         model = GroupLoan
         fields = [
-            'id', 'loan_type', 'group_name', 'frequency_letter',
-            'amount', 'penalty', 'total_group_loan', 'loan_given',
+            'id', 'loan_type', 'group_name', 'frequency_letter', "end_date", "start_date",
+            'amount', 'penalty', 'total_group_loan', 'loan_given', "time",
             'due_date', 'transferred', 'blocked', 'new', 'members',
-            'member_statuses', 'loan_officer', 'created_at', 'updated_at', 'member_ids'
+            'member_statuses', 'loan_officer', 'created_at', 'updated_at', 'member_ids', 'payments'
         ]
+
         read_only_fields = (
             'created_at', 'updated_at', 'members', 'member_statuses',
             'loan_type', 'loan_officer'
@@ -124,4 +129,10 @@ class GroupLoanSerializer(serializers.ModelSerializer):
                 )
         
         return instance
+    
+# class CollateralSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Collateral
+#         fields = ['id', 'photo', 'video', 'uploaded_at']
+
     

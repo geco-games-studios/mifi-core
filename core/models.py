@@ -2,28 +2,66 @@ from django.db import models
 from users.models import User
 from django.core.exceptions import ValidationError
 
+def photo_upload_path(instance, filename):
+    return f"collateral/photos/loan_{instance.loan.id}/{filename}"
+
+def video_upload_path(instance, filename):
+    return f"collateral/videos/loan_{instance.loan.id}/{filename}"
+
 class Loan(models.Model):
     LOAN_TYPES = (
         ('individual', 'Individual'),
         ('group', 'Group'),
     )
     
+    LOAN_STATUSES = (
+        ('pending', 'Pending'),
+        ('active', 'Active'),
+        ('overdue', 'Overdue'),
+        ('completed', 'Completed'),
+    )
+    
     loan_type = models.CharField(max_length=20, choices=LOAN_TYPES)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    # time = models.IntegerField()  # in months
     penalty = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    loan_officer = models.ForeignKey(User,on_delete=models.SET_NULL,null=True,related_name='%(class)s_loans')
+    loan_officer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='%(class)s_loans'
+    )
     total_due = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     total_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     start_date = models.DateField()
     end_date = models.DateField()
+    status = models.CharField(
+        max_length=20, 
+        choices=LOAN_STATUSES, 
+        default='active'
+    )
+
+    def save(self, *args, **kwargs):
+        # On creation, set total_due = amount if not already set
+        if self.pk is None and not self.total_due:
+            self.total_due = self.amount
+        super().save(*args, **kwargs)
     
     def clean(self):
+        super().clean()
+        
+        # Check that both dates are present
+        if self.start_date is None or self.end_date is None:
+            raise ValidationError("Both start date and end date are required.")
+            
         # Validate loan duration doesn't exceed 28 days
         if (self.end_date - self.start_date).days > 28:
             raise ValidationError("Loan duration cannot exceed 28 days.")
+            
+        # Validate end date is after start date
+        if self.end_date < self.start_date:
+            raise ValidationError("End date must be after start date.")
         
     def make_payment(self, amount, user, member=None):
         if amount <= 0:
@@ -51,6 +89,7 @@ class Loan(models.Model):
             )
         else:
             raise ValidationError("Invalid payment parameters.")
+
     class Meta:
         abstract = True
 
@@ -63,8 +102,14 @@ class IndividualLoan(Loan):
         related_name='individual_loans_as_recipient'
     )
 
+    def save(self, *args, **kwargs):
+        # Set status to active if it's a new loan and status isn't set
+        if not self.pk and not self.status:
+            self.status = 'active'
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.first_name} {self.last_name} - {self.amount}"
+        return f"{self.first_name} {self.last_name} - {self.amount} - {self.get_status_display()}"
 
 class GroupMemberStatus(models.Model):
     group_loan = models.ForeignKey('GroupLoan', on_delete=models.CASCADE)
@@ -99,6 +144,23 @@ class GroupMemberStatus(models.Model):
 
     def __str__(self):
         return f"{self.member.email} - Group {self.frequency_letter}"
+    
+class Collateral(models.Model):
+    loan = models.ForeignKey(
+        IndividualLoan,
+        on_delete=models.CASCADE,
+        related_name='collaterals'
+    )
+    photo = models.ImageField(upload_to=photo_upload_path)
+    video = models.FileField(upload_to=video_upload_path, blank=True, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        if not self.photo:
+            raise ValidationError("Photo is required for collateral.")
+
+    def __str__(self):
+        return f"Collateral for {self.loan.first_name} {self.loan.last_name}"
 
 class GroupLoan(Loan):
     FREQUENCY_LETTERS = (
@@ -132,12 +194,9 @@ class GroupLoan(Loan):
     transferred = models.BooleanField(default=False)
     blocked = models.BooleanField(default=False)
     new = models.BooleanField(default=True)
-    members = models.ManyToManyField(
-        User,
-        through='GroupMemberStatus',
-        through_fields=('group_loan', 'member'),
-        related_name='group_loans'
-    )
+    members = models.ManyToManyField(User,through='GroupMemberStatus',through_fields=('group_loan', 'member'),related_name='group_loans')
+    time = models.CharField(max_length=100, blank=True, null=True)
+
 
     def clean(self):
         super().clean()
@@ -156,8 +215,6 @@ class GroupLoan(Loan):
         """Returns a combined frequency representation"""
         return f"{self.frequency_letter}"
     
-
-# models.py
 class Payment(models.Model):
     """Model to track loan payments"""
     amount = models.DecimalField(max_digits=12, decimal_places=2)

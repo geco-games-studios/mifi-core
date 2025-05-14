@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from core.views import GroupLoanPaymentViewSet, IndividualLoanPaymentViewSet, IndividualLoanViewSet, GroupLoanViewSet, GroupMemberStatusViewSet
+from core.views import GroupLoanPaymentViewSet, IndividualLoanPaymentViewSet, IndividualLoanViewSet, GroupLoanViewSet, GroupMemberStatusViewSet
 from users.views import UserViewSet
 from reports.views import PaymentsCollectedViewSet,ActiveGroupsViewSet,AmountLoanedViewSet,ActiveLoansViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -17,7 +18,7 @@ urlpatterns = [
     }), name='individual-loan-list'),
     path('individual/<int:pk>/', IndividualLoanViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='individual-loan-detail'),
     path('individual/payments/<int:loan_id>/', IndividualLoanPaymentViewSet.as_view({
@@ -26,7 +27,17 @@ urlpatterns = [
     }), name='individual-loan-payments'),
     path('individual/<int:loan_id>/payments/<int:pk>/', IndividualLoanPaymentViewSet.as_view({
         'get': 'retrieve',
-        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='individual-loan-payment-detail'),
+
+
+    path('individual/payments/<int:loan_id>/', IndividualLoanPaymentViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='individual-loan-payments'),
+    path('individual/<int:loan_id>/payments/<int:pk>/', IndividualLoanPaymentViewSet.as_view({
+        'get': 'retrieve',
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='individual-loan-payment-detail'),
@@ -43,7 +54,17 @@ urlpatterns = [
     }), name='group-loan-detail'),
     path('group/<int:loan_id>/payments/<int:pk>/', GroupLoanPaymentViewSet.as_view({
         'get': 'retrieve',
-        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='group-loan-payment-detail'),
+
+
+    path('group/<int:loan_id>/payments/', GroupLoanPaymentViewSet.as_view({
+        'get': 'list',
+        'post': 'create'
+    }), name='group-loan-payments'),
+    path('group/<int:loan_id>/payments/<int:pk>/', GroupLoanPaymentViewSet.as_view({
+        'get': 'retrieve',
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='group-loan-payment-detail'),
@@ -54,7 +75,7 @@ urlpatterns = [
     }), name='group-member-list'),
     path('group-members/<int:pk>/', GroupMemberStatusViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='group-member-detail'),
 
@@ -79,7 +100,7 @@ urlpatterns = [
     }), name='payments-collected'),
     path('payments-collected/<int:pk>/', PaymentsCollectedViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='payments-collected-detail'),
     
@@ -89,7 +110,7 @@ urlpatterns = [
     }), name='active-groups'),
     path('active-groups/<int:pk>/', ActiveGroupsViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='active-groups-detail'),
     
@@ -99,7 +120,7 @@ urlpatterns = [
     }), name='amount-loaned'),
     path('amount-loaned/<int:pk>/', AmountLoanedViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='amount-loaned-detail'),
     
@@ -109,7 +130,18 @@ urlpatterns = [
     }), name='active-loans'),
     path('active-loans/<int:pk>/', ActiveLoansViewSet.as_view({
         'get': 'retrieve',
-        'put': 'partial_update',
+        'patch': 'partial_update',
         'delete': 'destroy'
     }), name='active-loans-detail'),
+
+    # Collaterals
+    # path('collaterals/', CollateralViewSet.as_view({
+    #     'get': 'list',
+    #     'post': 'create'
+    # }), name='collateral-list-create'),
+    # path('collaterals/<int:pk>/', CollateralViewSet.as_view({
+    #     'get': 'retrieve',
+    #     'patch': 'partial_update',
+    #     'delete': 'destroy'
+    # }), name='collateral-detail'),
 ]
